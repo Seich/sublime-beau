@@ -51,12 +51,13 @@ class BeauCommand(sublime_plugin.TextCommand):
 				self.requests.append([method, alias, endpoint])
 				requests.append([title, description])
 
-
-
 		proc.wait()
 		active_window.show_quick_panel(requests, self.on_done)
 
 	def on_done(self, index):
+		if index == -1:
+			return
+
 		active_window = sublime.active_window()
 		active_view = active_window.active_view()
 
