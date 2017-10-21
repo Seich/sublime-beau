@@ -42,9 +42,16 @@ class BeauCommand(sublime_plugin.TextCommand):
 		self.requests[:] = []
 		for line in iter(proc.stdout.readline, b''):
 			req = line.decode('utf-8').rstrip().split('\t')
-			method, alias, endpoint = req
-			self.requests.append(req)
-			requests.append([alias, endpoint])
+			if len(req) == 3:
+				method, alias, endpoint = req
+				requests.append([alias, endpoint])
+				self.requests.append(req)
+			elif len(req) == 5:
+				method, alias, endpoint, title, description = req
+				self.requests.append([method, alias, endpoint])
+				requests.append([title, description])
+
+
 
 		proc.wait()
 		active_window.show_quick_panel(requests, self.on_done)
