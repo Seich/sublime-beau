@@ -1,4 +1,6 @@
-# Beau
+# Sublime Beau
+
+![Usage Example](/images/demo.gif?raw=true)
 
 ## Description
 This plugin allows you to use beau on your beau files without having to leave sublime.

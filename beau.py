@@ -26,13 +26,7 @@ class BeauCommand(sublime_plugin.TextCommand):
 			active_window.status_message('Beau can only be ran on yaml files.')
 			return
 
-		print([
-			settings,
-			self.path,
-			'-c',
-			active_view.file_name(),
-			'--clean-list'
-		])
+		print('Using ' + self.path)
 
 		proc = Popen([
 			self.path,
@@ -91,9 +85,15 @@ class BeauCommand(sublime_plugin.TextCommand):
 			alias
 		], stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=True)
 
+		for line in iter(proc.stderr.readline, b''):
+			print(line)
+			active_window.status_message(line.decode("utf-8"))
+
 		response = []
 		for line in iter(proc.stdout.readline, b''):
 			response.append(line.rstrip())
+
+		active_window.status_message('')
 
 		status, endpoint, headers, body = response
 
