@@ -4,21 +4,20 @@ import sublime_plugin
 from http.client import responses
 from subprocess import Popen, PIPE
 
-PLUGIN_NAME = 'Beau'
-SETTINGS_FILE = '{0}.sublime-settings'.format(PLUGIN_NAME)
+SETTINGS_FILE = 'Beau.sublime-settings'
 SYNTAX = 'Packages/JavaScript/JSON.sublime-syntax'
-settings = sublime.load_settings(SETTINGS_FILE)
 
 class InsertTextCommand(sublime_plugin.TextCommand):
 	def run(self, edit, text):
 		self.view.insert(edit, 0, text)
 
-
 class BeauCommand(sublime_plugin.TextCommand):
 	requests = []
-	path = settings.get('cli_path', '')
+	path = ''
 
 	def run(self, edit):
+		settings = sublime.load_settings(SETTINGS_FILE)
+		self.path = settings.get('cli_path', '')
 		active_window = sublime.active_window()
 		active_view = active_window.active_view()
 
@@ -26,6 +25,14 @@ class BeauCommand(sublime_plugin.TextCommand):
 		if not scope.startswith('source.yaml'):
 			active_window.status_message('Beau can only be ran on yaml files.')
 			return
+
+		print([
+			settings,
+			self.path,
+			'-c',
+			active_view.file_name(),
+			'--clean-list'
+		])
 
 		proc = Popen([
 			self.path,
@@ -42,13 +49,24 @@ class BeauCommand(sublime_plugin.TextCommand):
 		self.requests[:] = []
 		for line in iter(proc.stdout.readline, b''):
 			req = line.decode('utf-8').rstrip().split('\t')
+
 			if len(req) == 3:
 				method, alias, endpoint = req
 				requests.append([alias, endpoint])
 				self.requests.append(req)
+
 			elif len(req) == 5:
 				method, alias, endpoint, title, description = req
 				self.requests.append([method, alias, endpoint])
+
+				if description == 'undefined':
+					description = endpoint
+
+				if title == 'undefined':
+					title = alias
+				else:
+					title = title + ' (' + alias + ')'
+
 				requests.append([title, description])
 
 		proc.wait()
@@ -91,7 +109,7 @@ class BeauCommand(sublime_plugin.TextCommand):
 		content += status + ' ' + responses[int(status)] + '\n\n'
 		content += 'Response Headers: \n'
 		content += self.autoindent(headers)
-		content += '\n\n Response Body: \n'
+		content += '\n\nResponse Body: \n'
 		content += self.autoindent(body)
 
 		results_view.run_command('insert_text', {'text': content})
