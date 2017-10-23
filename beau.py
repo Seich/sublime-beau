@@ -27,6 +27,7 @@ class BeauCommand(sublime_plugin.TextCommand):
 			return
 
 		print('Using ' + self.path)
+		print([ self.path, '-c', active_view.file_name(), '--clean-list' ])
 
 		proc = Popen([
 			self.path,
@@ -76,6 +77,8 @@ class BeauCommand(sublime_plugin.TextCommand):
 		method, alias, endpoint = self.requests[index]
 
 		active_window.status_message('Executing: ' + alias)
+
+		print([ self.path, '-c', active_view.file_name(), '-R', alias ])
 
 		proc = Popen([
 			self.path,
