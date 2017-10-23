@@ -1,4 +1,5 @@
 import json
+import platform
 import sublime
 import sublime_plugin
 from http.client import responses
@@ -34,7 +35,7 @@ class BeauCommand(sublime_plugin.TextCommand):
 			'-c',
 			active_view.file_name(),
 			'--clean-list'
-		], stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=True)
+		], stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=self.is_windows())
 
 		for line in iter(proc.stderr.readline, b''):
 			print(line)
@@ -86,7 +87,7 @@ class BeauCommand(sublime_plugin.TextCommand):
 			active_view.file_name(),
 			'-R',
 			alias
-		], stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=True)
+		], stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=self.is_windows())
 
 		for line in iter(proc.stderr.readline, b''):
 			print(line)
@@ -128,4 +129,7 @@ class BeauCommand(sublime_plugin.TextCommand):
 			separators=(',', ': '),
 			ensure_ascii=False
 		)
+
+	def is_windows(self):
+		return platform.system() == 'Windows'
 
