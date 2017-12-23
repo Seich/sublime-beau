@@ -28,13 +28,20 @@ class BeauCommand(sublime_plugin.TextCommand):
 			return
 
 		print('Using ' + self.path)
-		print([ self.path, '-c', active_view.file_name(), '--clean-list' ])
+		print([
+			self.path,
+			'-c',
+			active_view.file_name(),
+			'list',
+			'--no-format'
+		])
 
 		proc = Popen([
 			self.path,
 			'-c',
 			active_view.file_name(),
-			'--clean-list'
+			'list',
+			'--no-format'
 		], stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=self.is_windows())
 
 		for line in iter(proc.stderr.readline, b''):
@@ -79,14 +86,22 @@ class BeauCommand(sublime_plugin.TextCommand):
 
 		active_window.status_message('Executing: ' + alias)
 
-		print([ self.path, '-c', active_view.file_name(), '-R', alias ])
+		print([
+			self.path,
+			'-c',
+			active_view.file_name(),
+			'request',
+			alias,
+			'--no-format'
+		])
 
 		proc = Popen([
 			self.path,
 			'-c',
 			active_view.file_name(),
-			'-R',
-			alias
+			'request',
+			alias,
+			'--no-format'
 		], stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=self.is_windows())
 
 		for line in iter(proc.stderr.readline, b''):
