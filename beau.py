@@ -1,12 +1,14 @@
 import json
 import platform
-import sublime
 import sublime_plugin
 from http.client import responses
-from subprocess import Popen, PIPE
+from sublime import load_settings, active_window
+from subprocess import check_output
 
 SETTINGS_FILE = 'Beau.sublime-settings'
 SYNTAX = 'Packages/JavaScript/JSON.sublime-syntax'
+
+is_windows = (platform.system() == 'Windows')
 
 class InsertTextCommand(sublime_plugin.TextCommand):
 	def run(self, edit, text):
@@ -16,124 +18,86 @@ class BeauCommand(sublime_plugin.TextCommand):
 	requests = []
 	path = ''
 
+	def inThread(self, command, onComplete):
+		def thread(command, onComplete):
+			proc = check_output(command, shell=is_windows)
+			onComplete(proc)
+			return
+
+		thread = threading.Thread(target=thread, args=(command, onComplete))
+		thread.start()
+
+		return thread
+
 	def run(self, edit):
-		settings = sublime.load_settings(SETTINGS_FILE)
+		settings = load_settings(SETTINGS_FILE)
 		self.path = settings.get('cli_path', '')
-		active_window = sublime.active_window()
-		active_view = active_window.active_view()
+		active_view = active_window().active_view()
 
 		scope = active_view.scope_name(active_view.sel()[0].b)
 		if not scope.startswith('source.yaml'):
-			active_window.status_message('Beau can only be ran on yaml files.')
+			active_window().status_message('Beau can only be ran on yaml files.')
 			return
 
-		print('Using ' + self.path)
-		print([
-			self.path,
-			'-c',
-			active_view.file_name(),
-			'list',
-			'--no-format'
-		])
+		self.inThread(
+			[self.path, '-c', active_view.file_name(), 'list', '--no-format'],
+			self.listFetched
+		)
 
-		proc = Popen([
-			self.path,
-			'-c',
-			active_view.file_name(),
-			'list',
-			'--no-format'
-		], stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=self.is_windows())
-
-		for line in iter(proc.stderr.readline, b''):
-			print(line)
-			active_window.status_message(line.decode("utf-8"))
-
+	def listFetched(self, list):
 		requests = []
 		self.requests[:] = []
-		for line in iter(proc.stdout.readline, b''):
+		for line in list.splitlines():
 			req = line.decode('utf-8').rstrip().split('\t')
+			method, alias, endpoint = req
+			requests.append([alias, endpoint])
+			self.requests.append(req)
 
-			if len(req) == 3:
-				method, alias, endpoint = req
-				requests.append([alias, endpoint])
-				self.requests.append(req)
+		active_window().show_quick_panel(requests, self.on_request_selected)
 
-			elif len(req) == 5:
-				method, alias, endpoint, title, description = req
-				self.requests.append([method, alias, endpoint])
-
-				if description == 'undefined':
-					description = endpoint
-
-				if title == 'undefined':
-					title = alias
-				else:
-					title = title + ' (' + alias + ')'
-
-				requests.append([title, description])
-
-		proc.wait()
-		active_window.show_quick_panel(requests, self.on_done)
-
-	def on_done(self, index):
+	def on_request_selected(self, index):
 		if index == -1:
 			return
 
-		active_window = sublime.active_window()
-		active_view = active_window.active_view()
-
+		active_view = active_window().active_view()
 		method, alias, endpoint = self.requests[index]
 
-		active_window.status_message('Executing: ' + alias)
+		active_window().status_message('Running: ' + alias)
 
-		print([
-			self.path,
-			'-c',
-			active_view.file_name(),
-			'request',
-			alias,
-			'--no-format'
-		])
+		def handleResult(result):
+			response = []
+			for line in result.splitlines():
+				response.append(line.rstrip())
 
-		proc = Popen([
-			self.path,
-			'-c',
-			active_view.file_name(),
-			'request',
-			alias,
-			'--no-format'
-		], stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=self.is_windows())
+			active_window().status_message('')
 
-		for line in iter(proc.stderr.readline, b''):
-			print(line)
-			active_window.status_message(line.decode("utf-8"))
+			status, endpoint, headers, body = response
 
-		response = []
-		for line in iter(proc.stdout.readline, b''):
-			response.append(line.rstrip())
+			status = status.decode('utf-8')
+			endpoint = endpoint.decode('utf-8')
+			headers = headers.decode('utf-8')
+			body = body.decode('utf-8')
 
-		active_window.status_message('')
+			results_view = active_window().new_file()
+			results_view.set_name('Results: ' + alias)
 
-		status, endpoint, headers, body = response
+			content = method + ' ' + endpoint + '\n'
+			content += status + ' ' + responses[int(status)] + '\n\n'
 
-		status = status.decode('utf-8')
-		endpoint = endpoint.decode('utf-8')
-		headers = headers.decode('utf-8')
-		body = body.decode('utf-8')
+			content += 'Response Headers: \n'
+			content += self.autoindent(headers)
 
-		results_view = active_window.new_file()
-		results_view.set_name('Results: ' + alias)
+			content += '\n\nResponse Body: \n'
+			content += self.autoindent(body)
 
-		content = method + ' ' + endpoint + '\n'
-		content += status + ' ' + responses[int(status)] + '\n\n'
-		content += 'Response Headers: \n'
-		content += self.autoindent(headers)
-		content += '\n\nResponse Body: \n'
-		content += self.autoindent(body)
+			results_view.run_command('insert_text', {'text': content})
+			results_view.set_scratch(True)
+			results_view.set_syntax_file(SYNTAX)
 
-		results_view.run_command('insert_text', {'text': content})
-		results_view.set_scratch(True)
-		results_view.set_syntax_file(SYNTAX)
+		self.inThread(
+			[self.path, '-c', active_view.file_name(), 'request', alias, '--no-format'],
+			onComplete=handleResult
+		)
 
 	def autoindent(self, obj):
 		parsed = json.loads(obj)
