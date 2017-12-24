@@ -1,6 +1,7 @@
 import json
 import platform
 import sublime_plugin
+from threading import Thread
 from http.client import responses
 from sublime import load_settings, active_window
 from subprocess import check_output
@@ -24,7 +25,7 @@ class BeauCommand(sublime_plugin.TextCommand):
 			onComplete(proc)
 			return
 
-		thread = threading.Thread(target=thread, args=(command, onComplete))
+		thread = Thread(target=thread, args=(command, onComplete))
 		thread.start()
 
 		return thread
