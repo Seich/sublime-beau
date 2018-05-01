@@ -41,7 +41,7 @@ class BeauCommand(sublime_plugin.TextCommand):
 			return
 
 		self.inThread(
-			[self.path, '-c', active_view.file_name(), 'list', '--no-format'],
+			[self.path, 'list', '-c', active_view.file_name(), '--no-format'],
 			self.listFetched
 		)
 
@@ -96,11 +96,14 @@ class BeauCommand(sublime_plugin.TextCommand):
 			results_view.set_syntax_file(SYNTAX)
 
 		self.inThread(
-			[self.path, '-c', active_view.file_name(), 'request', alias, '--no-format'],
+			[self.path, 'request', alias,'-c', active_view.file_name(), '--no-format'],
 			onComplete=handleResult
 		)
 
 	def autoindent(self, obj):
+		if not obj.strip():
+			return 'Empty';
+
 		parsed = json.loads(obj)
 		return json.dumps(
 			parsed,
