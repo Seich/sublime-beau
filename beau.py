@@ -18,12 +18,19 @@ class InsertTextCommand(sublime_plugin.TextCommand):
 class BeauCommand(sublime_plugin.TextCommand):
 	requests = []
 	path = ''
+	active_view = None
+	scope = None
+	folders = []
 
-	def inThread(self, command, onComplete):
+	def inThread(self, command, onComplete, cwd=None):
 		def thread(command, onComplete):
-			proc = check_output(command, shell=is_windows)
-			onComplete(proc)
-			return
+			try:
+				proc = check_output(command, shell=is_windows, stderr=subprocess.STDOUT, cwd=cwd)
+				onComplete(proc)
+				return
+			except subprocess.CalledProcessError as e:
+				active_window().status_message('Beau Command Failed. Open the console for more info.')
+				print(e.output)
 
 		thread = Thread(target=thread, args=(command, onComplete))
 		thread.start()
@@ -33,16 +40,18 @@ class BeauCommand(sublime_plugin.TextCommand):
 	def run(self, edit):
 		settings = load_settings(SETTINGS_FILE)
 		self.path = settings.get('cli_path', '')
-		active_view = active_window().active_view()
+		self.active_view = active_window().active_view()
+		self.folders = active_window().folders()
 
-		scope = active_view.scope_name(active_view.sel()[0].b)
-		if not scope.startswith('source.yaml'):
-			active_window().status_message('Beau can only be ran on yaml files.')
-			return
+		self.scope = self.active_view.scope_name(self.active_view.sel()[0].b)
+		command = [self.path, 'list', '--no-format']
+		if self.scope.startswith('source.yaml'):
+			command.extend(['-c', self.active_view.file_name()])
 
 		self.inThread(
-			[self.path, 'list', '-c', active_view.file_name(), '--no-format'],
-			self.listFetched
+			command,
+			self.listFetched,
+			cwd=self.folders[0] if len(self.folders) > 0 else None
 		)
 
 	def listFetched(self, list):
@@ -60,7 +69,6 @@ class BeauCommand(sublime_plugin.TextCommand):
 		if index == -1:
 			return
 
-		active_view = active_window().active_view()
 		method, alias, endpoint = self.requests[index]
 
 		active_window().status_message('Running: ' + alias)
@@ -95,9 +103,14 @@ class BeauCommand(sublime_plugin.TextCommand):
 			results_view.set_scratch(True)
 			results_view.set_syntax_file(SYNTAX)
 
+		command = [self.path, 'request', alias, '--no-format']
+		if self.scope.startswith('source.yaml'):
+			command.extend(['-c', self.active_view.file_name()])
+
 		self.inThread(
-			[self.path, 'request', alias,'-c', active_view.file_name(), '--no-format'],
-			onComplete=handleResult
+			command,
+			onComplete=handleResult,
+			cwd=self.folders[0] if len(self.folders) > 0 else None
 		)
 
 	def autoindent(self, obj):
