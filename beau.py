@@ -1,6 +1,9 @@
 import json
 import platform
 import sublime_plugin
+import subprocess
+import sublime
+from .status_loops import loop_status_msg
 from threading import Thread
 from http.client import responses
 from sublime import load_settings, active_window
@@ -21,15 +24,18 @@ class BeauCommand(sublime_plugin.TextCommand):
 	active_view = None
 	scope = None
 	folders = []
+	stop = None
 
 	def inThread(self, command, onComplete, cwd=None):
 		def thread(command, onComplete):
 			try:
+				self.stop = loop_status_msg([' ⣾', ' ⣽', ' ⣻', ' ⢿', ' ⡿', ' ⣟', ' ⣯', ' ⣷'], .1)
 				proc = check_output(command, shell=is_windows, stderr=subprocess.STDOUT, cwd=cwd)
 				onComplete(proc)
 				return
 			except subprocess.CalledProcessError as e:
-				active_window().status_message('Beau Command Failed. Open the console for more info.')
+				self.stop()
+				sublime.set_timeout_async(lambda: active_window().status_message('Beau Command Failed. Open the console for more info.'), 1000)
 				print(e.output)
 
 		thread = Thread(target=thread, args=(command, onComplete))
@@ -55,6 +61,8 @@ class BeauCommand(sublime_plugin.TextCommand):
 		)
 
 	def listFetched(self, list):
+		self.stop(True)
+
 		requests = []
 		self.requests[:] = []
 		for line in list.splitlines():
@@ -74,6 +82,8 @@ class BeauCommand(sublime_plugin.TextCommand):
 		active_window().status_message('Running: ' + alias)
 
 		def handleResult(result):
+			self.stop(True)
+
 			response = []
 			for line in result.splitlines():
 				response.append(line.rstrip())

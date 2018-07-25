@@ -1,15 +1,16 @@
-# Beau
+Installation
 
-## Installation
 Before beginning you need to have installed beau, you can find out how to
 do so here: https://github.com/seich/beau.
 
-## Setup
+Setup
+
 The first thing you should do now if open up the settings
 file (Preferences > Package Settings > Beau > Settings - User) and set up your cli_path.
 It should be pointing to the location of your beau installation.
 
-## Usage
+Usage
+
 Once that's done, you can start use beau without leaving sublime.
 To use this plugin, open up a beau config file and open the commands palette (ctrl + shift + p).
 Type Beau Request and select the request you want to make. A new file should open showing you the
